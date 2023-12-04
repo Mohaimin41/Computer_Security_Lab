@@ -1,4 +1,5 @@
 import numpy as np
+import time
 import BitVector as bv
 
 Sbox = (
@@ -63,7 +64,7 @@ InvMixer = [
 
 
 class AES_block_crypto:
-    def __init__(self, key, message) -> None:
+    def __init__(self, key: np.array, message: np.array) -> None:
         self.key = key
         self.message = message
         self.keysize_bytes = key.size
@@ -84,15 +85,19 @@ class AES_block_crypto:
         self.sbox = np.array(Sbox, dtype=np.uint)
         self.inv_sbox = np.array(InvSbox, dtype=np.uint)
 
-    def get_rcon_i(self, round_num) -> np.array:
+    def get_rcon_i(self, round_num: int) -> np.array:
         return np.array([self.round_consts[round_num - 1], 0x0, 0x0, 0x0], dtype=np.uint)
 
-    def sub_byte(self, word) -> None:
-        for i in range(word.size):
-            word[i] = self.sbox[word[i]]
+    def sub_byte(self, word: np.array) -> None:
+        if self.is_encrypting:
+            for i in range(word.size):
+                word[i] = self.sbox[word[i]]
+        else:
+            for i in range(word.size):
+                word[i] = self.inv_sbox[word[i]]
 
     # type: 1 = normal full operation, 2 = special only substitution, 3 = only xor
-    def round_const_op(self, word_idx, round_num, type) -> np.array:
+    def round_const_op(self, word_idx: int, round_num: int, type: int) -> np.array:
         rcon_i = np.zeros(4, dtype=np.uint)
         word_i_1 = np.array(
             self.round_keys[(word_idx - 1) * 4:(word_idx - 1) * 4 + 4], dtype=np.uint)
@@ -116,6 +121,7 @@ class AES_block_crypto:
 
     def gen_round_keys(self) -> None:
         N = int(self.keysize_bytes/4)  # word size
+        start_time = time.time_ns() 
         for i in range(4 * (self.num_of_rounds + 1)):
             word_i = np.zeros(4, dtype=np.uint)
             if (i < N):
@@ -130,20 +136,108 @@ class AES_block_crypto:
                 word_i = self.round_const_op(i, int(i/4), 3)
 
             self.round_keys[i*4: i*4 + 4] = word_i
+        self.keygen_time = (time.time_ns() - start_time)/ (10 ** 6)
+
+    def get_round_key(self, num_round: int) -> np.array:
+        temp_key = np.zeros(16)
+        if self.is_encrypting:
+            temp_key = self.round_keys[num_round*16:num_round*16+4*4]
+        else:
+            temp_key = self.round_keys[(
+                self.num_of_rounds - num_round)*16: (self.num_of_rounds - num_round)*16 + 4*4]
+        return temp_key
 
     def shift_rows(self) -> None:
-        self.message = self.message.reshape((4, 4)).transpose()
+        shift_amount = 0
+        if self.is_encrypting:
+            shift_amount = -1
+        else:
+            shift_amount = 1
         for i in range(4):
-            self.message[i*4: i*4+4] = np.roll(self.message[i*4: i*4+4], -1*i)
+            self.message[i] = np.roll(self.message[i], shift_amount*i)
 
     def mix_column(self) -> None:
+        AES_modulus = bv.BitVector(bitstring='100011011')
+        
+        temp_msg = np.zeros((4,4), dtype=np.uint)
+        
+        for row in range(4):
+            for col in range(4):
+                tmp_sum = 0
+                for c in range (4):
+                    if self.is_encrypting:
+                        tmp_val = Mixer[row][c].gf_multiply_modular(bv.BitVector(intVal=self.message[c][col]), AES_modulus, 8)
+                    else:
+                        tmp_val = InvMixer[row][c].gf_multiply_modular(bv.BitVector(intVal=self.message[c][col]), AES_modulus, 8)
+                    tmp_sum = tmp_sum ^ tmp_val.int_val()
+                temp_msg[row][col] = tmp_sum
+
+        self.message = temp_msg
         pass
 
-    def single_round(self, num_round) -> None:
-        pass
+    def single_encrypt_round(self, num_round: int) -> None:
+        temp_key = self.get_round_key(num_round+1)
+
+        self.sub_byte(self.message)
+
+        self.message = self.message.reshape((4, 4)).transpose()
+        self.shift_rows()
+
+        self.mix_column()
+
+        self.message = self.message.transpose().reshape(16)
+        self.message = self.message ^ temp_key
+
+    def single_decrypt_round(self, num_round: int):
+        temp_key = self.get_round_key(num_round+1)
+
+        self.message = self.message.reshape((4, 4)).transpose()
+        self.shift_rows()
+        self.message = self.message.transpose().reshape(16)
+
+        self.sub_byte(self.message)
+
+        self.message = self.message ^ temp_key
+
+        self.message = self.message.reshape((4, 4)).transpose()
+        self.mix_column()
+        self.message = self.message.transpose().reshape(16)
 
     def main_loop(self) -> None:
-        pass
+        start_time = time.time_ns()
 
-    def encrypt_decrypt(self, operation_type: bool) -> str:
-        pass
+        for num_round in range(self.num_of_rounds):
+            if self.is_encrypting:
+                if (num_round == 9):
+                    temp_key = self.get_round_key(num_round + 1)
+                    self.sub_byte(self.message)
+                    
+                    self.message = self.message.reshape((4, 4)).transpose()
+                    self.shift_rows()
+                    
+                    self.message = self.message.transpose().reshape(16)
+                    self.message = self.message ^ temp_key
+                else:
+                    self.single_encrypt_round(num_round)
+            else:
+                if (num_round == 9):
+                    temp_key = self.get_round_key(num_round + 1)
+                    
+                    self.message = self.message.reshape((4, 4)).transpose()
+                    self.shift_rows()
+                    
+                    self.message = self.message.transpose().reshape(16)
+                    self.sub_byte(self.message)
+                    
+                    self.message = self.message ^ temp_key
+                else:
+                    self.single_decrypt_round(num_round)
+        
+        self.crypt_time = (time.time_ns() - start_time)/ (10 ** 6)
+
+    def encrypt_decrypt(self, is_encrypting: bool) -> np.array:
+        self.is_encrypting = is_encrypting
+        temp_key = self.get_round_key(0)
+        self.message = self.message ^ temp_key
+        self.main_loop()
+        return self.message
