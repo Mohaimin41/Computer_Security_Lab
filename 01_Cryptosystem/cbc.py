@@ -36,7 +36,7 @@ class CBC:
     def message_input(self) -> np.array:
         msg = input("Enter message: ")
         msg_arr = self.ascii_to_arr(msg)
-        num_blcks = int(np.ceil(msg_arr.size / 16.0))
+        num_blcks = int(np.ceil(msg_arr.size / 16.0)) + 1
         msg_2d = np.full((num_blcks, 16), 0x20, dtype=np.uint)
         print("num blocks: ", num_blcks)
         for row in range(num_blcks):
@@ -69,6 +69,14 @@ class CBC:
         num_blcks = int(np.ceil(message.size / 16.0))
         crypted_arr = np.zeros(message.shape, dtype=np.uint)
 
+        self.Initialization_Vector = np.zeros(16, dtype=np.uint)
+        if self.is_encrypting:
+            for i in range(self.Initialization_Vector.size):
+                self.Initialization_Vector[i] = secrets.randbits(8)
+            temp_IV = np.array([self.Initialization_Vector])
+            message = np.concatenate((temp_IV, message), axis=0)
+        # print("message: ", message)
+
         for blck in range(num_blcks):
             if self.is_encrypting:
                 crypted_arr[blck] = self.single_encrypt(message[blck], key)
@@ -81,6 +89,7 @@ class CBC:
         msg_block = msg_block ^ self.Initialization_Vector
 
         worker = AES_block_crypto(key=key, message=msg_block)
+        print("msg_block: ", msg_block)
         encrypted_blck = worker.encrypt_decrypt(is_encrypting=True)
 
         self.keygen_time = self.keygen_time + worker.keygen_time
