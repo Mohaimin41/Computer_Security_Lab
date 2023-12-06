@@ -22,11 +22,11 @@ class ECDH_client:
     def __init__(self, bitsize: int):
         self.bitsize = bitsize
 
-        self.curve = None
-        self.gen_point = None
-        self.private_key = None
-        self.public_key = None
-        self.shared_secret = None
+        self.curve = EC(0,0,0)
+        self.gen_point = My_Point(0,0)
+        self.private_key = 0
+        self.public_key = My_Point(0,0)
+        self.shared_secret = My_Point(0,0)
 
     def is_ab_ok(self, a: int, b: int, prime: int) -> bool:
         if (a is not None) and (b is not None):
@@ -49,7 +49,7 @@ class ECDH_client:
             y = secrets.randbelow(prime-1)
             b = pow(y, 2, prime) - pow(x, 3, prime) - (a * x) % prime
 
-        curve = EC(p, a, b)
+        curve = EC(prime, a, b)
         gen_point = My_Point(x, y)
         self.curve = curve
         self.gen_point = gen_point
@@ -84,9 +84,9 @@ class ECDH_client:
         return res
 
     def mk_keys(self, curve: EC, generator_point: My_Point) :
-        private_key = secrets.randbelow(
-            curve.Prime + 1 + int(math.sqrt(curve.Prime)))
-
+        # private_key = secrets.randbelow(
+        #     curve.Prime + 1 + int(math.sqrt(curve.Prime)))
+        private_key = secrets.randbits(self.bitsize)
         public_key = self.scalar_mult(
             curve, generator_point, scalar=private_key)
         self.private_key = private_key
