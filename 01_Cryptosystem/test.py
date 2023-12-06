@@ -1,4 +1,9 @@
 # from aes import *
+import importlib
+
+aes = importlib.import_module("1905041_aes")
+cbc = importlib.import_module("1905041_cbc")
+ecdh = importlib.import_module("1905041_ecdh")
 
 # aes = AES_block_crypto(np.array([0x54, 0x68, 0x61, 0x74, 0x73, 0x20, 0x6D, 0x79, 0x20, 0x4B, 0x75, 0x6E, 0x67, 0x20, 0x46, 0x75
 #  ]),
@@ -34,9 +39,20 @@
 # # aes.message = aes.message ^ temp_key
 # # print("aes message after add roundkey: ",np.vectorize(hex)(aes.message))
 # print("aes msg after encryption: ", np.vectorize(hex)( aes.encrypt_decrypt(False)))
-from cbc import *
-from aes import *
+# from cbc import *
+# from aes import *
 
-cry = CBC()
+# # cry = CBC()
 
-cry.run()
+# # cry.run()
+# from ecdh import *
+
+worker = ecdh.ECDH_client(5)
+
+worker.curve = ecdh.EC(17,2,2)
+worker.gen_point = ecdh.My_Point(5,1)
+
+for i in range (2,19):
+    temp = worker.scalar_mult(worker.curve, worker.gen_point, i)
+
+    print(i, "*(5,1): ", temp.x, ",", temp.y)
