@@ -69,11 +69,11 @@ if (incoming == "ack pubx"):
 
 shared_key = ecdh_worker.mk_shared_secret(ecdh.My_Point(pub_x, pub_y), prv_key)
 
-incoming = s.recv(1024).decode()
-s.send(str(shared_key.x).encode())
+# incoming = s.recv(1024).decode()
+# s.send(str(shared_key.x).encode())
 
-if (incoming == str(shared_key.x)):
-    print("ECDH done")
+# if (incoming == str(shared_key.x)):
+print("ECDH done")
 
 msg = s.recv(1024).decode()
 

@@ -64,12 +64,12 @@ while True:
     
     shared_key = ecdh_worker.mk_shared_secret(other_public_key, priv_key)
     
-    c.send(str(shared_key.x).encode())
+    # c.send(str(shared_key.x).encode())
     
-    incoming = c.recv(1024).decode()
+    # incoming = c.recv(1024).decode()
 
-    if (incoming == str(shared_key.x)):
-        print("ECDH done")
+    # if (incoming == str(shared_key.x)):
+    print("ECDH done")
     
     cbc_w=cbc.CBC()
     msg = cbc_w.message_input()
